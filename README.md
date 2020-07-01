@@ -15,12 +15,12 @@ Each available pipeline will have an architecture diagram with high-level steps 
 ## Capability set (this will be subject to change)
 
 ### Security Tools
-- **Secret detection**: Detect-Secrets
-- **Linting**: TFLint, Python-CFN-Lint, Hadolint
-- **SAST**: Bandit, TFSec, Checkov, Cfn-nag, Cfripper, Polaris, sKan
-- **OSSec / License management**: Snyk, Whitesource
-- **Vulnerability management**: Trivy, Dagda
-- **Anti-virus / anti-malware**: Dagda, ClamAV
+- **Secret detection**: [Detect-Secrets](https://github.com/Yelp/detect-secrets)
+- **Linting**: [TFLint](https://github.com/terraform-linters/tflint), [cfn-python-lint](https://github.com/aws-cloudformation/cfn-python-lint), [Hadolint](https://github.com/hadolint/hadolint)
+- **SAST**: [Bandit](https://github.com/PyCQA/bandit), [TFSec](https://github.com/liamg/tfsec), [Checkov](https://github.com/bridgecrewio/checkov), [Cfn-nag](https://github.com/stelligent/cfn_nag), [Cfripper](https://github.com/Skyscanner/cfripper), [Polaris](https://github.com/FairwindsOps/polaris), [sKan](https://github.com/alcideio/skan)
+- **OSSec / License management**: [Snyk](https://github.com/snyk/snyk), [Whitesource](https://github.com/whitesource/agents)
+- **Vulnerability management**: [Trivy](https://github.com/aquasecurity/trivy), [Dagda](https://github.com/eliasgranderubio/dagda)
+- **Anti-virus / anti-malware**: [Dagda](https://github.com/eliasgranderubio/dagda), [ClamAV](https://www.clamav.net/documents/clam-antivirus-user-manual)
 
 ### Not security tools?
 - **Source code management**: CodeCommit
