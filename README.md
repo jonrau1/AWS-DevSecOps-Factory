@@ -15,47 +15,47 @@ Each available pipeline will have an architecture diagram with high-level steps 
 ## Capability set (this will be subject to change)
 
 ### Security Tools
-**Secret detection**: Detect-Secrets
-**Linting**: TFLint, Python-CFN-Lint, Hadolint
-**SAST**: Bandit, TFSec, Checkov, Cfn-nag, Cfripper, Polaris, sKan
-**OSSec / License management**: Snyk, Whitesource
-**Vulnerability management**: Trivy, Dagda
-**Anti-virus / anti-malware**: Dagda, ClamAV
+- **Secret detection**: Detect-Secrets
+- **Linting**: TFLint, Python-CFN-Lint, Hadolint
+- **SAST**: Bandit, TFSec, Checkov, Cfn-nag, Cfripper, Polaris, sKan
+- **OSSec / License management**: Snyk, Whitesource
+- **Vulnerability management**: Trivy, Dagda
+- **Anti-virus / anti-malware**: Dagda, ClamAV
 
 ### Not security tools?
-**Source code management**: CodeCommit
-**Continuous integration**: CodeBuild
-**Continuous deployment**: CodePipeline
-**Secrets management**: Systems Manager Parameter Store
+- **Source code management**: CodeCommit
+- **Continuous integration**: CodeBuild
+- **Continuous deployment**: CodePipeline
+- **Secrets management**: Systems Manager Parameter Store
 
 ## Pipelines
 
 ### CloudFormation DevSecOps Pipeline
 Architecture
 
-**Start Here**
+[**Start Here**](/cloudformation-pipeline)
 
 ### Terraform DevSecOps Pipeline
 Architecture
 
-**Start Here**
+[**Start Here**](/terraform-pipeline)
 
 ### Docker image DevSecOps Pipeline (using Whitesource)
 Architecture
 
-**Start Here**
+[**Start Here**](/docker-pipeline-wss)
 
 ### Docker image DevSecOps Pipeline (using Snyk)
 Architecture
 
-**Start Here**
+[**Start Here**](/docker-pipeline-snyk)
 
 ### Kubernetes deployment Pipeline
 Architecture
 
-**Start Here**
+[**Start Here**](/k8s-pipeline)
 
 ### Docker + Kubernetes 2-stager Pipeline
 Architecture
 
-**Start Here**
+[**Start Here**](/docker-k8s-double-decker)
