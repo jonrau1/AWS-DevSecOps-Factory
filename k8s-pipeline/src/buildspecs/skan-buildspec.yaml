@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt install -y jq
+      - cd artifacts
+      - wget https://github.com/alcideio/skan/releases/download/v0.8.0/skan_v0.8.0_linux_amd64
+      - chmod +x skan_v0.8.0_linux_amd64
+  build:
+    commands:
+      - ./skan_v0.8.0_linux_amd64 manifest --output json --outputfile result.json -f ./ && jq . result.json
+  post_build:
+    commands:
+      - echo sKan analysis completed on `date`

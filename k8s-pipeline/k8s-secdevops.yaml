@@ -1,0 +1,258 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploys a sample CodePipeline to scan and deploy CFN templates
+Parameters:
+  InitialCommitBucket:
+    Type: String
+    Description: The name of the S3 bucket containing the package for the initial commit for the DevSecOps pipeline
+  InitialCommitKey:
+    Type: String
+    Description: Name of the package for the initial commit for the DevSecOps pipeline DO NOT include .zip
+    Default: k8s-devsecops
+Resources:
+  DevSecOpsCICDCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Contains all artifacts needed for a K8s security scanning DevSecOps pipeline - Managed by CloudFormation
+      RepositoryName: k8s-devsecops
+      Code:
+        S3:
+          Bucket: !Ref InitialCommitBucket
+          Key: !Sub '${InitialCommitKey}.zip'
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+      Policies:
+      - PolicyName: CodeBuildServiceRolePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - codecommit:GitPull
+            Resource: !GetAtt DevSecOpsCICDCodeCommit.Arn
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            Resource:
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}'
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}/*'
+          - Effect: Allow
+            Action:
+            - kms:Decrypt
+            - ssm:GetParameter
+            - ssm:GetParameters
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: codebuild.amazonaws.com }
+          Action:
+          - sts:AssumeRole
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Policies:
+      - PolicyName: CodePipelineServiceRolePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - codecommit:CancelUploadArchive
+            - codecommit:GetBranch
+            - codecommit:GetCommit
+            - codecommit:GetUploadArchiveStatus
+            - codecommit:UploadArchive
+            Resource: !GetAtt DevSecOpsCICDCodeCommit.Arn
+          - Effect: Allow
+            Action:
+            - cloudwatch:*
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            - s3:PutBucketPolicy
+            - s3:ListAllMyBuckets
+            - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}'
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}/*'
+          - Effect: Allow
+            Action:
+            - codebuild:BatchGetBuilds
+            - codebuild:StartBuild
+            Resource:
+              - !GetAtt SecretScanStage.Arn
+              - !GetAtt PolarisStage.Arn
+              - !GetAtt SkanStage.Arn
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: codepipeline.amazonaws.com }
+          Action:
+          - sts:AssumeRole
+  DevSecOpsCICDCodePipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'k8s-devsecopscicd-artifacts-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  SecretScanStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Yelp's Detect-Secrets to look for any secrets or sensitive material - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: SecretScan
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/secrets-buildspec.yaml
+        Type: CODEPIPELINE
+  SkanStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Alcide's sKan to perfrom static security analysis of K8s config files and helm charts - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: SkanStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/skan-buildspec.yaml
+        Type: CODEPIPELINE
+  PolarisStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Fairwind's Polaris to perfrom static security analysis of K8s config files and helm charts - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: PolarisStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/polaris-buildspec.yaml
+        Type: CODEPIPELINE
+  DevSecOpsCICDCodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref DevSecOpsCICDCodePipelineArtifactBucket
+        Type: S3
+      Name: !Sub 'DevSecOpsCICD-scan-cicd-pipeline-${AWS::AccountId}'
+      RestartExecutionOnUpdate: True
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              Configuration:
+                RepositoryName: !GetAtt DevSecOpsCICDCodeCommit.Name
+                BranchName: master
+              OutputArtifacts:
+                -
+                  Name: SourceOutput
+              RunOrder: 1
+        -
+          Name: SecretScan
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref SecretScanStage
+                  PrimarySource: SourceOutput
+              RunOrder: 2
+        -
+          Name: SkanStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref SkanStage
+                  PrimarySource: SourceOutput
+              RunOrder: 3
+        -
+          Name: PolarisStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref PolarisStage
+                  PrimarySource: SourceOutput
+              RunOrder: 4

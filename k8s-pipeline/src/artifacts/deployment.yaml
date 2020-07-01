@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: web
+  name: web-proxy
+spec:
+  selector:
+    matchLabels:
+      app: web
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx@sha256:0efad4d09a419dc6d574c3c3baacb804a530acd61d5eba72cb1f14e1f5ac0c8f
+        resources:
+          limits:
+            memory: "200Mi"
+            cpu: "700m"
+          requests:
+            memory: "200Mi"
+            cpu: "700m"
+        ports:
+        - containerPort: 80
