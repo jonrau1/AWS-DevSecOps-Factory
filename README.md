@@ -67,8 +67,12 @@ Architecture TODO
 ### Flask DevSecOps Pipeline
 Architecture TODO
 
+[**Start Here**](/flask-pipeline)
+
 ### Go application DevSecOps Pipeline
 Architecture TODO
+
+[**Start Here**](/golang-pipeline)
 
 ## FAQ
 
