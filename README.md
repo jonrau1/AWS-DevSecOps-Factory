@@ -10,7 +10,7 @@ TODO
 The AWS-DevSecOps-Factory is a consolidation of a variety of work I had done to create DevSecOps pipelines using AWS native tools. In reality these are more like automated AppSec pipelines that you would bolt on to the start of your release train. That approach will be the least maintainence and ideally you would commit artifacts supported by the pipeline to be scanned before creating a release candidate from them. This repository will continually grow (hopefully through outside contributions) and is focused on using open-source security tools to deliver functionality. At times I will use commercial or "freemium" (commercial tools with a functional free tier). Being an AWS solutions library all security-related findings from the various tools will be parsed and written to Security Hub to tie your SecOps people and processes closer to your DevSecOps development groups.
 
 ## How to use this repository
-Each available pipeline will have an architecture diagram with high-level steps / actions, at the bottom of the steps a link to the directory containing the code is provided as a hyperlink. You can deploy the solution with CloudFormation after uploading a ZIP archive to an S3 bucket, or, you can go into the `/src/` subdirectory of each solution to view the raw files (example artifacts, buildspec and Python scripts).
+Each available pipeline will have an architecture diagram and a link to the directory containing the code is provided as a hyperlink. The subdirectories will have a more detailed walkthrough of steps, prerequisites and deployment considerations. You can deploy the solution with CloudFormation after uploading a ZIP archive to an S3 bucket, or, you can go into the `/src/` subdirectory of each solution to view the raw files (example artifacts, buildspec and Python scripts).
 
 ## Capability set (this will be subject to change)
 
@@ -31,43 +31,31 @@ Each available pipeline will have an architecture diagram with high-level steps 
 ## Pipelines
 
 ### CloudFormation DevSecOps Pipeline
-Architecture
+![CloudFormation DevSecOps Architecture](/cloudformation-pipeline/cloudformation-pipeline-architecture.jpg)
 
 [**Start Here**](/cloudformation-pipeline)
 
 ### Terraform DevSecOps Pipeline
-Architecture
+![Terraform DevSecOps Architecture](/terraform-pipeline/terraform-pipeline-architecture.jpg)
 
 [**Start Here**](/terraform-pipeline)
 
 ### Docker image DevSecOps Pipeline (using Whitesource)
 ![Docker-DevSecOps-WSS](/docker-pipeline-wss/docker-pipeline-wss-architecture.jpg)
-1. DevSecOps engineers use AWS Cloud9 as their Integrated Development Environment (IDE), here they can develop code, test locally, push commits, share access and benefit from security controls provided by VPCs and IAM
-1. Upon commits to the master branch, CodePipeline automatically starts CI tests via different CodeBuild projects. We will use Hadolint, Detect-Secrets, Bandit, Snyk and Trivy to perform different security assessments that will be explained later
-1. All logs from CodePipeline and CodeBuild are pushed to CloudWatch Logs (and optionally S3), to offload the need to continuously clone our source repository, artifacts are backed up to S3 where they are access controlled and encrypted
-4. To promote code reuse and secure sensitive details like API keys and webhook tokens they will be injected into our build environment variables using AWS Systems Manager Parameter Store
-5. All security assessments that fail will fail their build stage, which stops the pipeline, and findings from which will be sent to AWS Security Hub to be aggregated and have actions taken on them
-6. After remediating various findings our Flash Docker image is pushed to Amazon Elastic Container Registry (ECR) where it can be used on a Fargate or EKS cluster
 
 [**Start Here**](/docker-pipeline-wss)
 
 ### Docker image DevSecOps Pipeline (using Snyk)
 ![Docker-DevSecOps-WSS](/docker-pipeline-snyk/docker-pipeline-snyk-architecture.jpg)
-1. DevSecOps engineers use AWS Cloud9 as their Integrated Development Environment (IDE), here they can develop code, test locally, push commits, share access and benefit from security controls provided by VPCs and IAM
-1. Upon commits to the master branch, CodePipeline automatically starts CI tests via different CodeBuild projects. We will use Hadolint, Detect-Secrets, Bandit, Snyk and Trivy to perform different security assessments that will be explained later
-1. All logs from CodePipeline and CodeBuild are pushed to CloudWatch Logs (and optionally S3), to offload the need to continuously clone our source repository, artifacts are backed up to S3 where they are access controlled and encrypted
-4. To promote code reuse and secure sensitive details like API keys and webhook tokens they will be injected into our build environment variables using AWS Systems Manager Parameter Store
-5. All security assessments that fail will fail their build stage, which stops the pipeline, and findings from which will be sent to AWS Security Hub to be aggregated and have actions taken on them
-6. After remediating various findings our Flash Docker image is pushed to Amazon Elastic Container Registry (ECR) where it can be used on a Fargate or EKS cluster
 
 [**Start Here**](/docker-pipeline-snyk)
 
 ### Kubernetes deployment Pipeline
-Architecture
+Architecture TODO
 
 [**Start Here**](/k8s-pipeline)
 
 ### Docker + Kubernetes 2-stager Pipeline
-Architecture
+Architecture TODO
 
 [**Start Here**](/docker-k8s-double-decker)
