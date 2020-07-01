@@ -41,12 +41,24 @@ Architecture
 [**Start Here**](/terraform-pipeline)
 
 ### Docker image DevSecOps Pipeline (using Whitesource)
-Architecture
+![Docker-DevSecOps-WSS](/docker-pipeline-wss/docker-pipeline-wss-architecture.jpg)
+1. DevSecOps engineers use AWS Cloud9 as their Integrated Development Environment (IDE), here they can develop code, test locally, push commits, share access and benefit from security controls provided by VPCs and IAM
+1. Upon commits to the master branch, CodePipeline automatically starts CI tests via different CodeBuild projects. We will use Hadolint, Detect-Secrets, Bandit, Snyk and Trivy to perform different security assessments that will be explained later
+1. All logs from CodePipeline and CodeBuild are pushed to CloudWatch Logs (and optionally S3), to offload the need to continuously clone our source repository, artifacts are backed up to S3 where they are access controlled and encrypted
+4. To promote code reuse and secure sensitive details like API keys and webhook tokens they will be injected into our build environment variables using AWS Systems Manager Parameter Store
+5. All security assessments that fail will fail their build stage, which stops the pipeline, and findings from which will be sent to AWS Security Hub to be aggregated and have actions taken on them
+6. After remediating various findings our Flash Docker image is pushed to Amazon Elastic Container Registry (ECR) where it can be used on a Fargate or EKS cluster
 
 [**Start Here**](/docker-pipeline-wss)
 
 ### Docker image DevSecOps Pipeline (using Snyk)
-Architecture
+![Docker-DevSecOps-WSS](/docker-pipeline-snyk/docker-pipeline-snyk-architecture.jpg)
+1. DevSecOps engineers use AWS Cloud9 as their Integrated Development Environment (IDE), here they can develop code, test locally, push commits, share access and benefit from security controls provided by VPCs and IAM
+1. Upon commits to the master branch, CodePipeline automatically starts CI tests via different CodeBuild projects. We will use Hadolint, Detect-Secrets, Bandit, Snyk and Trivy to perform different security assessments that will be explained later
+1. All logs from CodePipeline and CodeBuild are pushed to CloudWatch Logs (and optionally S3), to offload the need to continuously clone our source repository, artifacts are backed up to S3 where they are access controlled and encrypted
+4. To promote code reuse and secure sensitive details like API keys and webhook tokens they will be injected into our build environment variables using AWS Systems Manager Parameter Store
+5. All security assessments that fail will fail their build stage, which stops the pipeline, and findings from which will be sent to AWS Security Hub to be aggregated and have actions taken on them
+6. After remediating various findings our Flash Docker image is pushed to Amazon Elastic Container Registry (ECR) where it can be used on a Fargate or EKS cluster
 
 [**Start Here**](/docker-pipeline-snyk)
 
