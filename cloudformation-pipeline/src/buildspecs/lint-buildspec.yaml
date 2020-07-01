@@ -1,0 +1,13 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - pip3 install boto3
+      - pip3 install cfn-lint
+  build:
+    commands:
+      - cfn-lint ./templates/*.yml -f json
+  post_build:
+    commands:
+      - echo CFN Linting completed on `date`

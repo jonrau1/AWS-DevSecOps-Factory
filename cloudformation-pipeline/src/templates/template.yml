@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Generic CFN for testing
+Parameters:
+  CodeCommitName:
+    Type: String
+    Description: Name of your CodeCommit repo
+  BucketNamePrefix:
+    Type: String
+    Description: Name of your S3 bucket prefix. Must be lower case.
+Resources:
+  DevSecOpsCICDCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Create for CFN DevSecOps Pipeline example
+      RepositoryName: !Sub '${CodeCommitName}-devsecops-sample'
+  DevSecOpsExampleBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      #checkov:skip=CKV_AWS_18:this bucket doesnt need access logging
+      BucketName: !Sub '${BucketNamePrefix}-bucket-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256

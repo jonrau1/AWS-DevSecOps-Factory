@@ -1,0 +1,10 @@
+[
+    {
+      "ParameterKey": "CodeCommitName",
+      "ParameterValue": "monorepo"
+    }, 
+    {
+      "ParameterKey": "BucketNamePrefix",
+      "ParameterValue": "devsecops-bucket"
+    }
+  ]

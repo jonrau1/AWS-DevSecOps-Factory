@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.7
+    commands:
+      - pip3 install boto3
+      - pip3 install cfripper
+      - cd templates
+  build:
+    commands:
+      - cfripper --format json --resolve ./*.yml
+  post_build:
+    commands:
+      - echo CFRipper testing completed on `date`

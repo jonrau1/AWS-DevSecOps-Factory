@@ -1,0 +1,14 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      ruby: latest
+    commands:
+      - gem install cfn-nag
+  build:
+    commands:
+      - cfn_nag_scan --input-path ./templates --output-format json
+  post_build:
+    commands:
+      - echo cfn-nag testing completed on `date`
