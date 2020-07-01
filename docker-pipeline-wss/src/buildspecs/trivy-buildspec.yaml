@@ -1,0 +1,26 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt update
+      - pip3 install boto3
+      - pip3 install awscli
+      - apt install rpm -y
+      - wget https://github.com/aquasecurity/trivy/releases/download/v0.9.1/trivy_0.9.1_Linux-64bit.deb
+      - dpkg -i trivy_0.9.1_Linux-64bit.deb
+  pre_build:
+    commands:
+      - cd artifacts
+      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+      - docker build -t $ECR_REPO_NAME:latest .
+  build:
+    commands:
+      - trivy -f json --exit-code 0 --severity LOW,MEDIUM,HIGH --quiet --auto-refresh $ECR_REPO_NAME:latest
+      - trivy -f json --exit-code 1 --severity CRITICAL --quiet --auto-refresh $ECR_REPO_NAME:latest
+      - docker tag $ECR_REPO_NAME:latest $ECR_REPO_URI:latest
+      - docker push $ECR_REPO_URI:latest
+      - echo Docker image pushed to ECR on `date`
+  post_build:
+    commands:
+      - echo Trivy scan completed on `date`

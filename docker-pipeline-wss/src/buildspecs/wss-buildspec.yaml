@@ -1,0 +1,20 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: latest
+      java: latest
+    commands:
+      - cp ./buildspecs/wss-unified-agent.config ./artifacts/
+      - cd artifacts
+      - curl -LJO https://github.com/whitesource/unified-agent-distribution/releases/latest/download/wss-unified-agent.jar
+  pre_build:
+    commands:
+      - docker build -t $ECR_REPO_NAME:latest .
+  build:
+    commands:
+      - java -jar wss-unified-agent.jar -apiKey $WSS_API_KEY -userKey $WSS_USER_KEY -product $WSS_PRODUCT_NAME -project $WSS_PROJECT_NAME
+  post_build:
+    commands:
+      - echo WSS scan completed on `date`

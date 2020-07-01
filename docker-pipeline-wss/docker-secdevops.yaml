@@ -1,0 +1,390 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploys a sample CodePipeline to scan and deploy CFN templates
+Parameters:
+  InitialCommitBucket:
+    Type: String
+    Description: The name of the S3 bucket containing the package for the initial commit for the DevSecOps pipeline
+  InitialCommitKey:
+    Type: String
+    Description: Name of the package for the initial commit for the DevSecOps pipeline DO NOT include .zip
+    Default: docker-devsecops
+  WssProductName:
+    Type: String
+    Description: Your Whitesource Product Name this value is case sensitive
+  WssProjectName:
+    Type: String
+    Description: Your Whitesource Project Name to report against
+    Default: Whitesource-Codebuild
+  WssUserKeyParameter:
+    Type: String
+    Description: The SSM Parameter that contains your WSS User Key
+  WssApiKeyParameter:
+    Type: String
+    Description: The SSM Parameter that contains your WSS API Key
+Resources:
+  DevSecOpsCICDECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: docker-devsecops-ecr
+  DevSecOpsCICDCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Contains all artifacts needed for a Docker security scanning DevSecOps pipeline - Managed by CloudFormation
+      RepositoryName: docker-devsecops
+      Code:
+        S3:
+          Bucket: !Ref InitialCommitBucket
+          Key: !Sub '${InitialCommitKey}.zip'
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+      Policies:
+      - PolicyName: CodeBuildServiceRolePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - codecommit:GitPull
+            Resource: !GetAtt DevSecOpsCICDCodeCommit.Arn
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            Resource:
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}'
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}/*'
+          - Effect: Allow
+            Action:
+            - kms:Decrypt
+            - ssm:GetParameter
+            - ssm:GetParameters
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - ecr:GetDownloadUrlForLayer
+            - ecr:BatchGetImage
+            - ecr:BatchCheckLayerAvailability
+            - ecr:PutImage
+            - ecr:InitiateLayerUpload
+            - ecr:UploadLayerPart
+            - ecr:CompleteLayerUpload
+            - ecr:GetAuthorizationToken
+            Resource: !GetAtt DevSecOpsCICDECR.Arn
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: codebuild.amazonaws.com }
+          Action:
+          - sts:AssumeRole
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Policies:
+      - PolicyName: CodePipelineServiceRolePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - codecommit:CancelUploadArchive
+            - codecommit:GetBranch
+            - codecommit:GetCommit
+            - codecommit:GetUploadArchiveStatus
+            - codecommit:UploadArchive
+            Resource: !GetAtt DevSecOpsCICDCodeCommit.Arn
+          - Effect: Allow
+            Action:
+            - cloudwatch:'*'
+            - ssm:GetParameter
+            - ssm:GetParameters
+            - kms:Decrypt
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            - s3:PutBucketPolicy
+            - s3:ListAllMyBuckets
+            - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}'
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}/*'
+          - Effect: Allow
+            Action:
+            - codebuild:BatchGetBuilds
+            - codebuild:StartBuild
+            Resource:
+              - !GetAtt LintingStage.Arn
+              - !GetAtt SecretScanStage.Arn
+              - !GetAtt WhitesourceStage.Arn
+              - !GetAtt DagdaStage.Arn
+              - !GetAtt TrivyStage.Arn
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: codepipeline.amazonaws.com }
+          Action:
+          - sts:AssumeRole
+  DevSecOpsCICDCodePipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'docker-devsecopscicd-artifacts-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  LintingStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Hadolint to lint Dockerfiles - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: Docker-Linter
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/lint-buildspec.yaml
+        Type: CODEPIPELINE
+  SecretScanStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Yelp's Detect-Secrets to look for any secrets or sensitive material - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: SecretScan
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/secrets-buildspec.yaml
+        Type: CODEPIPELINE
+  WhitesourceStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Whitesource to detect vulnerabilities in dependencies, Docker images - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: ECR_REPO_NAME
+          Type: PLAINTEXT
+          Value: !Ref DevSecOpsCICDECR
+        - Name: WSS_API_KEY
+          Type: PARAMETER_STORE
+          Value: !Ref WssApiKeyParameter
+        - Name: WSS_USER_KEY
+          Type: PARAMETER_STORE
+          Value: !Ref WssUserKeyParameter
+        - Name: WSS_PROJECT_NAME
+          Type: PLAINTEXT
+          Value: !Ref WssProjectName
+        - Name: WSS_PRODUCT_NAME
+          Type: PLAINTEXT
+          Value: !Ref WssProductName
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: WhitesourceStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/wss-buildspec.yaml
+        Type: CODEPIPELINE
+  DagdaStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Dagda to scan Docker images for malware and vulnerabilities in OS and code dependencies - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: ECR_REPO_NAME
+          Type: PLAINTEXT
+          Value: !Ref DevSecOpsCICDECR
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: DagdaStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/dagda-buildspec.yaml
+        Type: CODEPIPELINE
+  TrivyStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Aqua Securitys Trivy to scan Docker parent and layer images at runtime - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: ECR_REPO_NAME
+          Type: PLAINTEXT
+          Value: !Ref DevSecOpsCICDECR
+        - Name: ECR_REPO_URI
+          Type: PLAINTEXT
+          Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${DevSecOpsCICDECR}'
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: TrivyStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/trivy-buildspec.yaml
+        Type: CODEPIPELINE
+  DevSecOpsCICDCodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref DevSecOpsCICDCodePipelineArtifactBucket
+        Type: S3
+      Name: !Sub 'DevSecOpsCICD-scan-cicd-pipeline-${AWS::AccountId}'
+      RestartExecutionOnUpdate: True
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              Configuration:
+                RepositoryName: !GetAtt DevSecOpsCICDCodeCommit.Name
+                BranchName: master
+              OutputArtifacts:
+                -
+                  Name: SourceOutput
+              RunOrder: 1
+        -
+          Name: Docker-Linter
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref LintingStage
+                  PrimarySource: SourceOutput
+              RunOrder: 2
+        -
+          Name: SecretScan
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref SecretScanStage
+                  PrimarySource: SourceOutput
+              RunOrder: 3
+        -
+          Name: WhitesourceStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref WhitesourceStage
+                  PrimarySource: SourceOutput
+              RunOrder: 4
+        -
+          Name: DagdaStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref DagdaStage
+                  PrimarySource: SourceOutput
+              RunOrder: 5
+        -
+          Name: TrivyStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref TrivyStage
+                  PrimarySource: SourceOutput
+              RunOrder: 6

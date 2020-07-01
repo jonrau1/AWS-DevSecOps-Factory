@@ -1,0 +1,14 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - cd artifacts
+      - wget https://github.com/hadolint/hadolint/releases/download/v1.18.0/hadolint-Linux-x86_64
+      - chmod -R +x hadolint-Linux-x86_64 
+  build:
+    commands:
+      - ./hadolint-Linux-x86_64 -f json Dockerfile 
+  post_build:
+    commands:
+      - echo Hadolint scan completed on `date`

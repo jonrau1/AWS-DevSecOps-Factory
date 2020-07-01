@@ -1,0 +1,39 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt update
+      - apt install -y jq
+      - apt install -y docker-compose
+      - pip3 install --upgrade pip
+      - git clone https://github.com/eliasgranderubio/dagda.git
+      - rm ./dagda/docker-compose.yml
+      - cp ./buildspecs/docker-compose.yml ./dagda/
+      - cd dagda
+      - docker-compose build
+      - docker-compose up -d
+      - sleep 55
+      - cd -
+      - cp ./buildspecs/dagda-parse.py ./artifacts/
+      - cp ./buildspecs/findingDetonator.py ./artifacts/
+      - cd artifacts
+  pre_build:
+    commands:
+      - export ECR_REPO_NAME=$ECR_REPO_NAME
+  build:
+    commands:
+      - docker exec -t dagda python3 dagda.py vuln --init
+      - sleep 60
+      - docker build -t $ECR_REPO_NAME .
+      - sleep 2
+      - docker exec -t dagda python3 dagda.py check --docker_image $ECR_REPO_NAME:latest > dagdaId.json
+      - sleep 2
+      - export DAGDA_ID=`python3 dagda-parse.py`
+      - sleep 420
+      - docker exec -t dagda python3 dagda.py history $ECR_REPO_NAME:latest --id $DAGDA_ID > dagdaFinding.json
+      - jq . dagdaFinding.json
+      - python3 findingDetonator.py
+  post_build:
+    commands:
+      - echo Dagda job completed on `date`
