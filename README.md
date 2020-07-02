@@ -55,12 +55,12 @@ Each available pipeline will have an architecture diagram and a link to the dire
 [**Start Here**](/docker-pipeline-snyk)
 
 ### Kubernetes deployment DevSecOps Pipeline
-Architecture TODO
+![Kubernetes DevSecOps Architecture](/k8s-pipeline/k8s-pipeline-architecure.jpg)
 
 [**Start Here**](/k8s-pipeline)
 
 ### Docker + Kubernetes 2-stager DevSecOps Pipeline
-Architecture TODO
+![Docker-K8s-Architecture](/docker-k8s-double-decker/docker-k8s-double-decker-architecture.jpg)
 
 [**Start Here**](/docker-k8s-double-decker)
 
