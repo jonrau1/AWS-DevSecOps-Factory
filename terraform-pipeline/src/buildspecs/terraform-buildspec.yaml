@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt update
+      - apt install -y unzip wget
+      - wget https://releases.hashicorp.com/terraform/0.12.28/terraform_0.12.28_linux_amd64.zip
+      - unzip terraform_0.12.28_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+  pre_build:
+    commands:
+      - cd artifacts
+      - export REGION=$AWS_REGION
+      - export STATE_BUCKET=$TF_STATE_BUCKET
+      - export STATE_DDB=$TF_STATE_DDB_TABLE
+      - export ENV=$SDLC_ENV_NAME
+      - export PROJECT_NAME=$PROJECT_NAME
+      - envsubst < provider.template > provider.tf
+      - terraform init
+  build:
+    commands:
+      - terraform $TERRAFORM_COMMAND -auto-approve
+      - echo Terraform deployment completed on `date`

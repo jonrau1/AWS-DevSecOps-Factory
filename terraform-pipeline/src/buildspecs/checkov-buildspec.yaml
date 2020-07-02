@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt update && apt install -y jq
+      - pip3 install --upgrade pip
+      - pip3 install boto3
+      - pip3 install checkov
+      - cp ./security-hub/checkovAsff.py ./artifacts/
+      - cd artifacts
+  build:
+    commands:
+    ## this showcases how to skip certain Checkov checks which may not be relevant
+    ## in this case, MFA Delete, Versioning and Access Logging are turned off
+    ## Only Root users can interact with MFA delete anyway - skipping checks versus forcing an Exit 0 is a good way to break builds and whitelist certain actions
+    ## ideally that should be supplemented with an exception recorded in SNOW or something...
+      - checkov --framework terraform --skip-check CKV_AWS_18,CKV_AWS_52,CKV_AWS_21 -d . -o json > checkov-findings.json
+      - echo Checkov scan completed on `date`
+  post_build:
+    commands:
+      - jq . checkov-findings.json
+      - python3 checkovAsff.py
+      - echo Security Hub script executed on `date` review the findings there

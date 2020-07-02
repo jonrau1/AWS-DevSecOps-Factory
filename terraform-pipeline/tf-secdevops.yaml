@@ -1,0 +1,413 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploys a sample CodePipeline to scan and deploy Terraform configuration files
+Parameters:
+  InitialCommitBucket:
+    Type: String
+    Description: The name of the S3 bucket containing the package for the initial commit for the DevSecOps pipeline
+  InitialCommitKey:
+    Type: String
+    Description: Name of the package for the initial commit for the DevSecOps pipeline DO NOT include .zip
+    Default: tf-devsecops
+  SDLCEnvName:
+    Type: String
+    Description: This populates the SDLC_ENV_NAME value for CodeBuild. It is used to add another subdirectory to the path of the .tftate stored in S3 remote state
+    Default: development
+  CodeBuildProjectName:
+    Type: String
+    Description: This populates the PROJECT_NAME value for CodeBuild. It both sets the name and adds another sub-directory to the path of the .tfstate file stored in S3 remote state 
+    Default: tf-devsecops-codebuild
+  TerraformApplyCommand:
+    Type: String
+    Description: This populates the TERRAFORM_COMMAND value for CodeBuild. If you ever needed to roll a deployment back replace this value with 'destroy' and manually release the change
+    Default: apply
+Resources:
+  DevSecOpsCICDCodeCommit:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Contains all build artifacts for a Terraform DevSecOps pipeline
+      RepositoryName: tf-devsecops
+      Code:
+        S3:
+          Bucket: !Ref InitialCommitBucket
+          Key: !Sub '${InitialCommitKey}.zip'
+  TerraformRemoteS3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'terraform-devsecopscicd-remote-state-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  TerraformRemoteDynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+        - 
+          AttributeName: LockID
+          AttributeType: S
+      KeySchema: 
+        - 
+          AttributeName: LockID
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      TableName: Terraform-DevSecOps-State-Locking
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Terraform-DevSecOps-CodeBuildServiceRole
+      Policies:
+      - PolicyName: Terraform-DevSecOps-CodeBuildServiceRolePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - codecommit:GitPull
+            Resource: !GetAtt DevSecOpsCICDCodeCommit.Arn
+          - Effect: Allow
+            Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:DeleteItem
+            Resource:
+              - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Terraform-DevSecOps-State-Locking'
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            - s3:ListBucket
+            - s3:ListAllMyBuckets
+            - s3:HeadBucket
+            - s3:GetBucketLocation
+            - s3:GetObjectVersion
+            Resource:
+              - !Sub 'arn:aws:s3:::${TerraformRemoteS3}'
+              - !Sub 'arn:aws:s3:::${TerraformRemoteS3}/*'
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}'
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}/*'
+          - Effect: Allow
+            Action:
+            # S3 permissions needed for the Terraform CRUD
+            - s3:List*
+            - s3:HeadBucket
+            - s3:Get*
+            - s3:CreateBucket
+            - s3:DeleteBucket
+            - s3:PutEncryptionConfiguration
+            - s3:GetEncryptionConfiguration
+            - kms:Decrypt
+            - ssm:GetParameter
+            - ssm:GetParameters
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: codebuild.amazonaws.com }
+          Action:
+          - sts:AssumeRole
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: Terraform-DevSecOps-CodePipelineServiceRole
+      Policies:
+      - PolicyName: Terraform-DevSecOps-CodePipelineServiceRolePolicy
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - codecommit:CancelUploadArchive
+            - codecommit:GetBranch
+            - codecommit:GetCommit
+            - codecommit:GetUploadArchiveStatus
+            - codecommit:UploadArchive
+            Resource: !GetAtt DevSecOpsCICDCodeCommit.Arn
+          - Effect: Allow
+            Action:
+            - cloudwatch:'*'
+            - ssm:GetParameter
+            - ssm:GetParameters
+            - kms:Decrypt
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            - s3:PutBucketPolicy
+            - s3:ListAllMyBuckets
+            - s3:ListBucket
+            Resource:
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}'
+              - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}/*'
+          - Effect: Allow
+            Action:
+            - codebuild:BatchGetBuilds
+            - codebuild:StartBuild
+            Resource:
+              - !GetAtt TFLinter.Arn
+              - !GetAtt SecretScanStage.Arn
+              - !GetAtt TfsecStage.Arn
+              - !GetAtt CheckovStage.Arn
+              - !GetAtt TFDeploymentStage.Arn
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal: { Service: codepipeline.amazonaws.com }
+          Action:
+          - sts:AssumeRole
+  DevSecOpsCICDCodePipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'terraform-devsecopscicd-artifacts-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  TFLinter:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses TFLint to lint Terraform configuration files - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: TFLinter
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/tflint-buildspec.yaml
+        Type: CODEPIPELINE
+  SecretScanStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Yelp's Detect-Secrets to look for any secrets or sensitive material - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: SecretScan
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/secrets-buildspec.yaml
+        Type: CODEPIPELINE
+  TfsecStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses TFSec to detect security misconfigurations in Terraform configuration files - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: TfsecStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/tfsec-buildspec.yaml
+        Type: CODEPIPELINE
+  CheckovStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Uses Checkov to detect security misconfigurations in Terraform configuration files - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: CheckovStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/checkov-buildspec.yaml
+        Type: CODEPIPELINE
+  TFDeploymentStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Installs Terraform and applies the state into your AWS Account - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: TF_STATE_BUCKET
+          Type: PLAINTEXT
+          Value: !Ref TerraformRemoteS3
+        - Name: TF_STATE_DDB_TABLE
+          Type: PLAINTEXT
+          Value: !Ref TerraformRemoteDynamoDB
+        - Name: SDLC_ENV_NAME
+          Type: PLAINTEXT
+          Value: !Ref SDLCEnvName
+        - Name: PROJECT_NAME
+          Type: PLAINTEXT
+          Value: !Ref CodeBuildProjectName
+        - Name: TERRAFORM_COMMAND
+          Type: PLAINTEXT
+          Value: !Ref TerraformApplyCommand
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: !Ref CodeBuildProjectName
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/terraform-buildspec.yaml
+        Type: CODEPIPELINE
+  DevSecOpsCICDCodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref DevSecOpsCICDCodePipelineArtifactBucket
+        Type: S3
+      Name: !Sub 'DevSecOpsCICD-tf-cicd-pipeline-${AWS::AccountId}'
+      RestartExecutionOnUpdate: True
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: 1
+                Provider: CodeCommit
+              Configuration:
+                RepositoryName: !GetAtt DevSecOpsCICDCodeCommit.Name
+                BranchName: master
+              OutputArtifacts:
+                -
+                  Name: SourceOutput
+              RunOrder: 1
+        -
+          Name: TF-Linter
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref TFLinter
+                  PrimarySource: SourceOutput
+              RunOrder: 2
+        -
+          Name: SecretScan
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref SecretScanStage
+                  PrimarySource: SourceOutput
+              RunOrder: 3
+        -
+          Name: TfsecStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref TfsecStage
+                  PrimarySource: SourceOutput
+              RunOrder: 4
+        -
+          Name: CheckovStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref CheckovStage
+                  PrimarySource: SourceOutput
+              RunOrder: 5
+        -
+          Name: TFDeploymentStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref TFDeploymentStage
+                  PrimarySource: SourceOutput
+              RunOrder: 6

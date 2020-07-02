@@ -1,0 +1,13 @@
+provider "aws" {
+  region  = "$REGION"
+}
+
+terraform {
+  backend "s3" {
+    bucket         = "$STATE_BUCKET"
+    key            = "$ENV/$PROJECT_NAME/terraform.tfstate"
+    region         = "$REGION"
+    dynamodb_table = "$STATE_DDB"
+    encrypt        = true
+  }
+}

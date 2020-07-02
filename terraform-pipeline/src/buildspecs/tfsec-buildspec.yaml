@@ -1,0 +1,23 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt update && apt install -y jq
+      - pip3 install --upgrade pip
+      - pip3 install boto3
+      - cp ./security-hub/tfsecAsff.py ./artifacts/
+      - cd artifacts
+  build:
+    commands:
+      - wget https://github.com/liamg/tfsec/releases/download/v0.21.0/tfsec-linux-amd64
+      - chmod +x ./tfsec-linux-amd64
+      # we are willingly ignoring the bucket logging check because it's annoying
+      # remove the -e flag if you do not want to ignore any checks
+      - ./tfsec-linux-amd64 -e AWS002 -f json > tfsec-findings.json
+      - echo TFLint check completed on `date`
+  post_build:
+    commands:
+      - jq . tfsec-findings.json
+      - python3 tfsecAsff.py
+      - echo Security Hub script executed on `date` review the findings there
