@@ -65,7 +65,7 @@ Each available pipeline will have an architecture diagram and a link to the dire
 [**Start Here**](/docker-k8s-double-decker)
 
 ### Flask DevSecOps Pipeline
-Architecture TODO
+![Flask DevSecOps Architecture](/flask-pipeline/flask-pipeline-architecture.jpg)
 
 [**Start Here**](/flask-pipeline)
 
