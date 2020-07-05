@@ -2,11 +2,11 @@
 Sample DevSecOps pipelines (heavily biased on the "Sec") for various stacks and tools using open-source security tools and AWS native services. Stop in, pick what you want, add your own!
 
 ## Table of Contents
-- [Description](/description)
-- How to use
-- Capability set
-- Pipelines
-- FAQ
+- [Description](https://github.com/jonrau1/AWS-DevSecOps-Factory#description)
+- [How to use](https://github.com/jonrau1/AWS-DevSecOps-Factory#how-to-use-this-repository)
+- [Capability set](https://github.com/jonrau1/AWS-DevSecOps-Factory#capability-set-this-will-be-subject-to-change)
+- [Pipelines](https://github.com/jonrau1/AWS-DevSecOps-Factory#pipelines)
+- [FAQ](https://github.com/jonrau1/AWS-DevSecOps-Factory#faq)
 
 ## Description
 The AWS-DevSecOps-Factory is a consolidation of a variety of work I had done to create DevSecOps pipelines using AWS native tools. In reality these are more like automated AppSec pipelines that you would bolt on to the start of your release train. That approach will be the least maintainence and ideally you would commit artifacts supported by the pipeline to be scanned before creating a release candidate from them. This repository will continually grow (hopefully through outside contributions) and is focused on using open-source security tools to deliver functionality. At times I will use commercial or "freemium" (commercial tools with a functional free tier). Being an AWS solutions library all security-related findings from the various tools will be parsed and written to Security Hub to tie your SecOps people and processes closer to your DevSecOps development groups.
