@@ -3,13 +3,18 @@ version: 0.2
 phases:
   install:
     commands:
-      - apt install -y jq
+      - apt update && apt install -y jq
+      - pip3 install --upgrade pip
+      - pip3 install boto3
+      - cp ./security-hub/skanAsff.py ./artifacts/
       - cd artifacts
       - wget https://github.com/alcideio/skan/releases/download/v0.8.0/skan_v0.8.0_linux_amd64
       - chmod +x skan_v0.8.0_linux_amd64
   build:
     commands:
-      - ./skan_v0.8.0_linux_amd64 manifest --output json --outputfile result.json -f ./ && jq . result.json
+      - ./skan_v0.8.0_linux_amd64 manifest --output json --outputfile skan-findings.json -f ./
   post_build:
     commands:
-      - echo sKan analysis completed on `date`
+      - jq . skan-findings.json
+      - python3 skanAsff.py
+      - echo Security Hub script executed on `date` review the findings there

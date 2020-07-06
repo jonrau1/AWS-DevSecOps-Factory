@@ -3,15 +3,20 @@ version: 0.2
 phases:
   install:
     commands:
+      - apt update && apt install -y jq
+      - pip3 install --upgrade pip
+      - pip3 install detect-secrets
+      - pip3 install boto3
+      - cp ./security-hub/polarisAsff.py ./artifacts/
       - cd artifacts
       - wget https://github.com/FairwindsOps/polaris/releases/download/1.0.3/polaris_1.0.3_linux_amd64.tar.gz
-      - ls
       - tar -xzf polaris_1.0.3_linux_amd64.tar.gz
-      - ls
       - chmod +x polaris
   build:
     commands:
-      - ./polaris audit --set-exit-code-on-danger --audit-path ./*.yaml
+      - ./polaris audit --format json --output-file polaris-findings.json --set-exit-code-on-danger --audit-path deployment.yaml
   post_build:
     commands:
-      - echo Polaris analysis completed on `date`
+      - jq . polaris-findings.json 
+      - python3 polarisAsff.py
+      - echo Security Hub script executed on `date` review the findings there
