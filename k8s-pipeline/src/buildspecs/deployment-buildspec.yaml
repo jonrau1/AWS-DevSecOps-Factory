@@ -1,0 +1,19 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt update
+      - curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+      - chmod +x ./kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+      - pip3 install --upgrade pip
+      - pip3 install awscli
+      - cd artifacts
+  pre_build:
+    commands:
+      - aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name $EKS_CLUSTER_NAME
+  build:
+    commands:
+      - kubectl apply -f deployment.yaml
+      - echo Latest spec pushed to cluster on `date`

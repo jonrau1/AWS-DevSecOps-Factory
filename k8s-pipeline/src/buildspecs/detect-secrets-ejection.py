@@ -6,7 +6,6 @@ try:
         if str(data['results']) != '{}':
             exit(1)
         else:
-            exit(0)
+            pass
 except Exception as e:
     print(e)
-    raise

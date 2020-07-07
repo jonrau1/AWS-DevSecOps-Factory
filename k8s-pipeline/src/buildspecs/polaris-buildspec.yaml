@@ -5,16 +5,15 @@ phases:
     commands:
       - apt update && apt install -y jq
       - pip3 install --upgrade pip
-      - pip3 install detect-secrets
       - pip3 install boto3
       - cp ./security-hub/polarisAsff.py ./artifacts/
       - cd artifacts
-      - wget https://github.com/FairwindsOps/polaris/releases/download/1.0.3/polaris_1.0.3_linux_amd64.tar.gz
-      - tar -xzf polaris_1.0.3_linux_amd64.tar.gz
+      - wget https://github.com/FairwindsOps/polaris/releases/download/1.1.0/polaris_1.1.0_linux_amd64.tar.gz
+      - tar -xzf polaris_1.1.0_linux_amd64.tar.gz
       - chmod +x polaris
   build:
     commands:
-      - ./polaris audit --format json --output-file polaris-findings.json --set-exit-code-on-danger --audit-path deployment.yaml
+      - ./polaris audit --format json --output-file polaris-findings.json --set-exit-code-on-danger --audit-path ./deployment.yaml
   post_build:
     commands:
       - jq . polaris-findings.json 

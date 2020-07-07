@@ -8,6 +8,9 @@ Parameters:
     Type: String
     Description: Name of the package for the initial commit for the DevSecOps pipeline DO NOT include .zip
     Default: k8s-devsecops
+  EKSClusterName:
+    Type: String
+    Description: The name of the EKS cluster you will deploy your config to
 Resources:
   DevSecOpsCICDCodeCommit:
     Type: AWS::CodeCommit::Repository
@@ -21,10 +24,11 @@ Resources:
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: K8sDevSecOps-CodeBuildServiceRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
       Policies:
-      - PolicyName: CodeBuildServiceRolePolicy
+      - PolicyName: K8sDevSecOps-CodeBuildServiceRolePolicy
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -44,9 +48,9 @@ Resources:
               - !Sub 'arn:aws:s3:::${DevSecOpsCICDCodePipelineArtifactBucket}/*'
           - Effect: Allow
             Action:
-            - kms:Decrypt
-            - ssm:GetParameter
-            - ssm:GetParameters
+            - securityhub:BatchImportFindings
+            - eks:List*
+            - eks:Describe*
             - logs:CreateLogGroup
             - logs:CreateLogStream
             - logs:PutLogEvents
@@ -61,8 +65,9 @@ Resources:
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: K8sDevSecOps-CodePipelineServiceRole
       Policies:
-      - PolicyName: CodePipelineServiceRolePolicy
+      - PolicyName: K8sDevSecOps-CodePipelineServiceRolePolicy
         PolicyDocument:
           Version: 2012-10-17
           Statement:
@@ -99,6 +104,7 @@ Resources:
               - !GetAtt SecretScanStage.Arn
               - !GetAtt PolarisStage.Arn
               - !GetAtt SkanStage.Arn
+              - !GetAtt K8sDeploymentStage.Arn
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -135,7 +141,7 @@ Resources:
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
-      Name: SecretScan
+      Name: K8sDevSecOps-SecretScan
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         BuildSpec: buildspecs/secrets-buildspec.yaml
@@ -147,14 +153,14 @@ Resources:
         Type: CODEPIPELINE
       Description: Uses Alcide's sKan to perfrom static security analysis of K8s config files and helm charts - Managed by CloudFormation
       Environment:
-        ComputeType: BUILD_GENERAL1_MEDIUM
+        ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:4.0
         PrivilegedMode: True
         Type: LINUX_CONTAINER
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
-      Name: SkanStage
+      Name: K8sDevSecOps-SkanStage
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         BuildSpec: buildspecs/skan-buildspec.yaml
@@ -166,17 +172,40 @@ Resources:
         Type: CODEPIPELINE
       Description: Uses Fairwind's Polaris to perfrom static security analysis of K8s config files and helm charts - Managed by CloudFormation
       Environment:
-        ComputeType: BUILD_GENERAL1_MEDIUM
+        ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/standard:4.0
         PrivilegedMode: True
         Type: LINUX_CONTAINER
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
-      Name: PolarisStage
+      Name: K8sDevSecOps-PolarisStage
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         BuildSpec: buildspecs/polaris-buildspec.yaml
+        Type: CODEPIPELINE
+  K8sDeploymentStage:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: Installs Kubectl, authenticates to EKS and applies your latest configuration spec - Managed by CloudFormation
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:4.0
+        PrivilegedMode: True
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: EKS_CLUSTER_NAME
+          Type: PLAINTEXT
+          Value: !Ref EKSClusterName
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Name: K8sDevSecOps-K8sDeploymentStage
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        BuildSpec: buildspecs/deployment-buildspec.yaml
         Type: CODEPIPELINE
   DevSecOpsCICDCodePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -256,3 +285,20 @@ Resources:
                   ProjectName: !Ref PolarisStage
                   PrimarySource: SourceOutput
               RunOrder: 4
+        -
+          Name: K8sDeploymentStage
+          Actions:
+            -
+              InputArtifacts:
+                -
+                  Name: SourceOutput
+              Name: BuildAction
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                  ProjectName: !Ref K8sDeploymentStage
+                  PrimarySource: SourceOutput
+              RunOrder: 5
