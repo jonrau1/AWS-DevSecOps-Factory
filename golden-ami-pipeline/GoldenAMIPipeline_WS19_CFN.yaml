@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates a Golden AMI Baking pipeline for Windows Server 2019 using EC2 Image Builder
+Parameters:
+  PipelinePrefix:
+    Type: String
+    Description: A lowercase prefix to be used for all EC2 Image Builder components and other services. Must be lowercase to avoid S3 issues
+    Default: winserver2019-golden-pipeline
+  ParentAMIId:
+    Type: String
+    Description: AMI ID of an Windows Server 2019 AMI to server as the parent for the pipeline
+    Default: ami-05bb2dae0b1de90b3
+  ImageBuildSecGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Security Group to create the Image Builder infrastructure with
+  ImageBuilderSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID to create the Image Builder infrastructure with
+  AwsAccountDistroList:
+    Type: List<Number>
+    Description: List of AWS accounts to share the final Golden AMIs with
+Resources:
+  EC2ImageBuilderLogginBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${PipelinePrefix}-logs-bucket-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  EC2ImageBuilderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${PipelinePrefix}-EC2ImageBuilderRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/EC2InstanceProfileForImageBuilder
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonInspectorFullAccess
+      Policies:
+      - PolicyName: !Sub '${PipelinePrefix}-EC2ImageBuilderRolePolicy'
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:CreateTags
+            - ssm:SendCommand
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:GetBucketAcl
+            - s3:GetBucketLocation
+            Resource:
+              - !Sub 'arn:aws:s3:::${EC2ImageBuilderLogginBucket}'
+              - !Sub 'arn:aws:s3:::${EC2ImageBuilderLogginBucket}/*'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+  EC2ImageBuilderInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2ImageBuilderRole
+  WS2019AMIPipeline:
+    Type: AWS::ImageBuilder::ImagePipeline
+    Properties:
+      Name: !Sub '${PipelinePrefix}-ImagePipeline'
+      Description: Golden AMI Pipeline to create Windows Server 2019 images - Managed by CloudFormation
+      ImageRecipeArn: !Ref WS2019AMIImageRecipe
+      DistributionConfigurationArn: !Ref ImageBuilderDistroConfig
+      InfrastructureConfigurationArn: !Ref ImageBuilderInfraConfig
+      ImageTestsConfiguration:
+        ImageTestsEnabled: true
+        TimeoutMinutes: 90
+      Schedule:
+        PipelineExecutionStartCondition: EXPRESSION_MATCH_ONLY
+        ScheduleExpression: cron(0 0 * * 0) #every week, on Sunday at 00:00
+      Status: ENABLED
+  WS2019AMIImageRecipe:
+    Type: AWS::ImageBuilder::ImageRecipe
+    Properties:
+      Name: !Sub '${PipelinePrefix}-SecurityImageRecipe'
+      Description: Applies STIG Low configurations, runs a CIS Benchmark scan and install security patches, Python 3 and PowerShell for Windows Server 2019 and then tests Reboot - Managed by CloudFormation
+      ParentImage: !Ref ParentAMIId
+      Components:
+        - ComponentArn: !Sub 'arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:component/stig-build-windows-low/1.0.0'
+        - ComponentArn: !Sub 'arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:component/powershell-core-windows/6.2.4'
+        - ComponentArn: !Sub 'arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:component/python-3-windows/3.8.2'
+        - ComponentArn: !Sub 'arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:component/update-windows/1.0.0'
+        - ComponentArn: !Sub 'arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:component/inspector-test-windows/1.0.1'
+        - ComponentArn: !Sub 'arn:${AWS::Partition}:imagebuilder:${AWS::Region}:aws:component/reboot-test-windows/1.0.0'
+      Version: 1.0.0
+  ImageBuilderDistroConfig:
+    Type: AWS::ImageBuilder::DistributionConfiguration
+    Properties:
+      Name: !Sub '${PipelinePrefix}-ImageBuilderDistroConfig'
+      Description: Windows Server 2019 Golden AMI distribution configuration - Managed by CloudFormation
+      Distributions:
+        - Region: us-east-1
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: us-east-2
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: us-west-1
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: us-west-2
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: eu-west-1
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: eu-west-2
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: sa-east-1
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: ap-south-1
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+        - Region: ap-southeast-2
+          AmiDistributionConfiguration:
+            Name: 'ami-hardened-winserver2019-{{ imagebuilder:buildDate }}'
+            Description: Windows Server 2019 Golden AMI - Created by EC2 Image Builder - Pipeline Managed by CloudFormation
+            AmiTags:
+              AmiTagKey: ami-tag-key
+            LaunchPermissionConfiguration:
+              UserIds: !Ref AwsAccountDistroList
+  ImageBuilderInfraConfig:
+    Type: AWS::ImageBuilder::InfrastructureConfiguration
+    Properties:
+      Name: !Sub '${PipelinePrefix}-ImageBuilderInfraConfig'
+      Description: Windows Server 2019 Golden AMI infrastructure configuration - Managed by CloudFormation
+      InstanceProfileName: !Ref EC2ImageBuilderInstanceProfile
+      Logging:
+        S3Logs:
+          S3BucketName: !Ref EC2ImageBuilderLogginBucket
+      SecurityGroupIds: !Ref ImageBuildSecGroupIds
+      SubnetId: !Ref ImageBuilderSubnetId
+      TerminateInstanceOnFailure: true

@@ -78,8 +78,8 @@ Architecture TODO
 
 [**Start Here**](/golang-pipeline)
 
-### Golden AMI Pipeline
-Architecture TODO
+### Golden AMI Pipelines
+![Golden AMI Pipelines Architecture](/golden-ami-pipeline/golden-ami-pipeline.jpg)
 
 [**Start Here**](/golden-ami-pipeline)
 
