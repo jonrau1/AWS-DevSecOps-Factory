@@ -28,10 +28,11 @@ Each available pipeline will have an architecture diagram and a link to the dire
 - **Anti-virus / anti-malware**: [Dagda](https://github.com/eliasgranderubio/dagda), [ClamAV](https://www.clamav.net/documents/clam-antivirus-user-manual)
 
 ### Developement Tools
+- **Infrastructure-as-Code**: [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/Welcome.html)
 - **Source code management**: [AWS CodeCommit](https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html)
 - **Continuous integration**: [AWS CodeBuild](https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html)
-- **Continuous delivery**: [AWS CodePipeline](https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html)
-- **Deployment service**: [AWS CodeDeploy](https://d0.awsstatic.com/whitepapers/DevOps/practicing-continuous-integration-continuous-delivery-on-AWS.pdf)
+- **Continuous delivery**: [AWS CodePipeline](https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html), [AWS EC2 Image Builder](https://aws.amazon.com/image-builder/)
+- **Continuous deployment**: [AWS CodeDeploy](https://d0.awsstatic.com/whitepapers/DevOps/practicing-continuous-integration-continuous-delivery-on-AWS.pdf)
 - **Secrets management**: [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)
 - **Artifact management**: [AWS S3](https://docs.aws.amazon.com/AmazonS3/latest/gsg/GetStartedWithS3.html) (artifacts in this perspective refer to code that is shared between your CodePipeline stages)
 
@@ -76,6 +77,11 @@ Each available pipeline will have an architecture diagram and a link to the dire
 Architecture TODO
 
 [**Start Here**](/golang-pipeline)
+
+### Golden AMI Pipeline
+Architecture TODO
+
+[**Start Here**](/golden-ami-pipeline)
 
 ## FAQ
 
