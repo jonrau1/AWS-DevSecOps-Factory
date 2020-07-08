@@ -26,6 +26,7 @@ Each available pipeline will have an architecture diagram and a link to the dire
 - **OSSec / License management**: [Snyk](https://github.com/snyk/snyk), [Whitesource](https://github.com/whitesource/agents), [OWASP DependencyCheck](https://github.com/jeremylong/DependencyCheck) (via Dagda)
 - **Vulnerability management**: [Trivy](https://github.com/aquasecurity/trivy), [Dagda](https://github.com/eliasgranderubio/dagda)
 - **Anti-virus / anti-malware**: [Dagda](https://github.com/eliasgranderubio/dagda), [ClamAV](https://www.clamav.net/documents/clam-antivirus-user-manual)
+- **Operating System Assurance**: [DISA STIG](https://docs.aws.amazon.com/imagebuilder/latest/userguide/image-builder-stig.html), [Amazon Inspector](https://docs.aws.amazon.com/inspector/latest/userguide/inspector_introduction.html) (for CIS Benchmarks)
 
 ### Developement Tools
 - **Infrastructure-as-Code**: [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/Welcome.html)

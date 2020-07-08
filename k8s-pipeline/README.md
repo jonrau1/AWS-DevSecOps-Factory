@@ -61,9 +61,6 @@ aws eks create-nodegroup \
 
 9. After the Node Group has finished creating you can move onto the next steps. This is important because it will create an AWS authentication Config Map in the `kube-system` namespace that you will interact with in Step 4 of the next session.
 
-## Solution architecture
-![Architecture Diagram](./k8s-pipeline-architecture.jpg)
-
 ## Getting Started
 1. Clone this repository and upload `k8s-devsecops.zip` to a bucket of your choosing.
 2. Deploy a CloudFormation Stack from `K8s_DevSecOps_Pipeline_CFN.yaml` in your AWS account, all necessary artifacts will be pushed as the first commit to the created CodeCommit repository. **Note** the first deployment will fail because your CodeBuild IAM Role does not have the required RBAC access into your EKS Cluster.

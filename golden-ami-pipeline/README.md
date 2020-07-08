@@ -1,5 +1,5 @@
 # Golden Amazon Machine Image (AMI) Pipelines
-Various implementations of Golden AMI Pipelines built by AWS EC2 Image Builder and deployed via CloudFormation. The implementation examples include Amazon Linux 2, Ubuntu 18.04LTS and Windows Server 2019. At a minimum, each Pipeline includes Recipe Components which install the latest security updates. AWS does not seem to have feature parity across all of the support OS flavors hence the gaps. For for information see the **Capability Set** section.
+Various implementations of Golden AMI Pipelines built by AWS [EC2 Image Builder](https://docs.aws.amazon.com/imagebuilder/latest/userguide/what-is-image-builder.html) and deployed via CloudFormation. The implementation examples include Amazon Linux 2, Ubuntu 18.04LTS and Windows Server 2019. At a minimum, each Pipeline includes [Recipes and Components](https://docs.aws.amazon.com/imagebuilder/latest/userguide/how-image-builder-works.html) which install the latest security updates. AWS does not have feature parity across all components to support various OS flavors. Each AMI baking Recipe is described in the **Capability Set** section.
 
 ## Capability Set
 - Amazon Linux 2 (`GoldenAMIPipeline_AMZL2_CFN.yaml`)
