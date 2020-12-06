@@ -1,6 +1,8 @@
 # AWS-DevSecOps-Factory
 Sample DevSecOps pipelines (heavily biased on the "Sec") for various stacks and tools using open-source security tools and AWS native services. Stop in, pick what you want, add your own!
 
+AS OF 6 DEC 2020 THIS REPO IS NOW PUBLIC, IT IS AN UNFINISHED PROJECT!!
+
 ## Table of Contents
 - [Description](https://github.com/jonrau1/AWS-DevSecOps-Factory#description)
 - [How to use](https://github.com/jonrau1/AWS-DevSecOps-Factory#how-to-use-this-repository)
