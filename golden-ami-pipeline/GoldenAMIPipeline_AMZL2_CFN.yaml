@@ -6,9 +6,10 @@ Parameters:
     Description: A lowercase prefix to be used for all EC2 Image Builder components and other services. Must be lowercase to avoid S3 issues
     Default: amzn-linux-golden-pipeline
   ParentAMIId:
-    Type: String
-    Description: AMI ID of an Amazon Linux 2 AMI to server as the parent for the pipeline
-    Default: ami-08f3d892de259504d
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Description: Parameter store containing the AMI ID of an Amazon Linux 2 AMI to server as the parent for the pipeline
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+    # https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-public-parameters-ami.html
   ImageBuildSecGroupIds:
     Type: List<AWS::EC2::SecurityGroup::Id>
     Description: Security Group to create the Image Builder infrastructure with
