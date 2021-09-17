@@ -135,7 +135,7 @@ Resources:
       Description: Uses Yelp's Detect-Secrets to look for any secrets or sensitive material - Managed by CloudFormation
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/standard:5.0
         PrivilegedMode: True
         Type: LINUX_CONTAINER
       LogsConfig:
@@ -154,7 +154,7 @@ Resources:
       Description: Uses Alcide's sKan to perfrom static security analysis of K8s config files and helm charts - Managed by CloudFormation
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/standard:5.0
         PrivilegedMode: True
         Type: LINUX_CONTAINER
       LogsConfig:
@@ -173,7 +173,7 @@ Resources:
       Description: Uses Fairwind's Polaris to perfrom static security analysis of K8s config files and helm charts - Managed by CloudFormation
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/standard:5.0
         PrivilegedMode: True
         Type: LINUX_CONTAINER
       LogsConfig:
@@ -192,7 +192,7 @@ Resources:
       Description: Installs Kubectl, authenticates to EKS and applies your latest configuration spec - Managed by CloudFormation
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/standard:4.0
+        Image: aws/codebuild/standard:5.0
         PrivilegedMode: True
         Type: LINUX_CONTAINER
         EnvironmentVariables:
